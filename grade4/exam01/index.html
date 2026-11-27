@@ -42,7 +42,30 @@ function paint(){clearTimeout(delay);busy=false;try{let s=get();if(s&&s.status!=
 if(!s){if(Number.isFinite(release)&&Date.now()>=release+3600000){app.innerHTML='<h2>பரீட்சைக்கான காலம் நிறைவடைந்துள்ளது!</h2>இனி இப்பரீட்சையை ஆரம்பிக்க முடியாது. மேலதிக விபரங்களுக்கு ஆசிரியரைத் தொடர்புகொள்ளவும்.<p><a href="https://wa.me/94752080314">ஆசிரியரைத் தொடர்புகொள்ளவும்</a></p>';return}
 let allowed=openNow();app.innerHTML='<div style="text-align:center">🍎 ⭐ 🐥 🎈<h2>தரம் 4 – கணிதப் பரீட்சை</h2>பரீட்சை '+num+'<h3>'+title+'</h3></div><div class="stats">30 வினாக்கள் · 100 புள்ளிகள் · 30 நிமிடங்கள்</div><form><label>மாணவர் பெயர்<input id="name" maxlength="100"></label><label>பாடசாலையின் பெயர் (விருப்பம்)<input id="school" maxlength="150"></label><details><summary>பெற்றோருக்கான குறிப்பு</summary>பெயரும் பெறுபேறும் இந்தச் சாதனத்தில் சேமிக்கப்படும். பெறுபேற்றை WhatsApp மூலம் நீங்களே ஆசிரியருக்கு அனுப்பலாம்.</details><p class="err" id="msg">'+(allowed?'':'ஆசிரியர் பரீட்சையைச் செயற்படுத்திய பின் ஆரம்பிக்கலாம்.')+'</p><button class="start" '+(allowed?'':'disabled')+'>பரீட்சையை ஆரம்பிக்கவும் ▶</button></form>';
 app.querySelector('form').onsubmit=e=>{e.preventDefault();if(get()||!openNow())return paint();let name=app.querySelector('#name').value.trim();if(!name){document.querySelector('#msg').textContent='தயவுசெய்து உனது பெயரை எழுதுக.';return}let start=Date.now();save({name,school:document.querySelector('#school').value.trim(),start,end:start+1800000,answers:Array(paper.length).fill(null),pos:0,status:'IN_PROGRESS',version:1});paint()};return}
-if(s.status==='COMPLETED'){let ok=s.answers.filter((x,i)=>x===paper[i].a).length,blank=s.answers.filter(x=>x===null).length,wrong=paper.length-ok-blank;let report=teacherReport(s,ok,wrong,blank);app.innerHTML='<h2>🎉 பரீட்சை நிறைவடைந்தது!</h2><a class="send" href="https://wa.me/94752080314?text='+encodeURIComponent(report.join('\n'))+'">💬 ஆசிரியருக்கு அனுப்பவும்</a><p>'+report.slice(1).map(escape).join('<br>')+'</p><details><summary>விடைகளைப் பார்ப்போம்</summary>'+paper.map((p,i)=>'<article><strong>'+ (i+1)+'. '+p.q+'</strong>'+p.v+'உனது விடை: '+(s.answers[i]??'விடையளிக்கவில்லை')+'<br>சரியான விடை: '+p.a+'<br>'+p.why+'</article>').join('')+'</details>';return}
+if(s.status==='COMPLETED'){let ok=s.answers.filter((x,i)=>x===paper[i].a).length,blank=s.answers.filter(x=>x===null).length,wrong=paper.length-ok-blank;let report=teacherReport(s,ok,wrong,blank);app.innerHTML='<h2>🎉 பரீட்சை நிறைவடைந்தது!</h2><a class="send" href="https://wa.me/94752080314?text='+encodeURIComponent(report.join('\n'))+'">💬 ஆசிரியருக்கு அனுப்பவும்</a><p>'+report.slice(1).map(escape).join('<br>')+'</p><details><summary>விடைகளைப் பார்ப்போம்</summary>'+paper.map((p,i)=>'<article><strong>'+ (i+1)+'. '+p.q+'</strong>'+p.v+'உனது விடை: '+(s.answers[i]??'விடையளிக்கவில்லை')+'<br>சரியான விடை: '+p.a+'<br>'+p.why+'</article>').join('')+'</details><button class="start" id="retry">பரீட்சையை மீண்டும் ஆரம்பிக்கவும்</button><p id="retryNote" role="status"></p>';
+const retry = document.querySelector('#retry');
+const note = document.querySelector('#retryNote');
+function showClosed() {
+  retry.disabled = true;
+  note.textContent = 'மீண்டும் எழுதுவதற்கான காலம் நிறைவடைந்துள்ளது. ஆசிரியரைத் தொடர்புகொள்ளவும்.';
+}
+if (!openNow()) showClosed();
+retry.onclick = () => {
+  if (!openNow()) { showClosed(); return; }
+  const previous = get();
+  if (!previous || previous.status !== 'COMPLETED' || previous.start !== s.start) { paint(); return; }
+  const start = Date.now();
+  try {
+    localStorage.setItem(key + '_attempt_' + previous.start, JSON.stringify(previous));
+    save({name: previous.name, school: previous.school, start, end: start + 1800000,
+      answers: Array(paper.length).fill(null), pos: 0, status: 'IN_PROGRESS', version: 1});
+  } catch {
+    note.textContent = 'புதிய முயற்சியைச் சேமிக்க முடியவில்லை. சாதனத்தின் சேமிப்பு வசதியைச் சரிபார்க்கவும்.';
+    return;
+  }
+  paint();
+};
+return}
 let i=s.pos,p=paper[i];app.innerHTML='<small>'+escape(s.name)+' · பரீட்சை '+num+'</small><p>வினா '+String(i+1).padStart(2,'0')+' / 30　<span id="timer">'+clock(s.end-Date.now())+'</span></p><progress max="30" value="'+s.answers.filter(x=>x!==null).length+'"></progress><h2>'+p.q+'</h2>'+p.v+'<div class="opts"></div><div class="nav"><button id="back" '+(i===0?'disabled':'')+'>முன்னைய வினா</button><button id="done">பரீட்சையை முடிக்கவும்</button></div>';for(let val of p.opts){let el=document.createElement('button');el.textContent=val;if(s.answers[i]===val)el.className='sel';app.querySelector('.opts').append(el);el.onclick=()=>{if(busy)return;let t=get();if(t.status!=='IN_PROGRESS'||t.pos!==i||Date.now()>=t.end)return paint();busy=true;t.answers[i]=val;t.pos=Math.min(paper.length-1,i+1);save(t);app.querySelectorAll('button').forEach(b=>b.disabled=true);el.className='sel';delay=setTimeout(paint,280)}}
 document.querySelector('#back').onclick=()=>{let t=get();if(t.status==='IN_PROGRESS'){t.pos=Math.max(0,t.pos-1);save(t)}paint()};document.querySelector('#done').onclick=()=>{let t=get();if(confirm('விடையளிக்காத வினாக்கள்: '+t.answers.filter(x=>x===null).length+'. பரீட்சையை முடிக்க விரும்புகிறாயா?'))finish(get());paint()}
 }catch(e){app.textContent='இச்சாதனத்தில் பரீட்சைத் தரவைச் சேமிக்க அல்லது மீட்டெடுக்க முடியவில்லை. ஆசிரியரைத் தொடர்புகொள்ளவும்.'}}
